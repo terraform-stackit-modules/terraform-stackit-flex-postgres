@@ -7,6 +7,42 @@ This file provides context and instructions for AI coding agents (Copilot, Curso
 This is a Terraform module for [STACKIT](https://www.stackit.de/en/), the cloud platform by Schwarz Group.
 It is part of the [terraform-stackit-modules](https://github.com/terraform-stackit-modules) organization, which aims to provide community-maintained, production-grade Terraform modules for STACKIT.
 
+### This module: flex-postgres (composite)
+
+Provisions a STACKIT **PostgreSQL Flex** instance with its databases and users. This is a
+**composite root module** that wires three independently-usable local sub-modules, mirroring
+the `modules/` pattern of `terraform-aws-rds`. It is the reference template for future Flex
+engine modules (`flex-mongodb`, `flex-sqlserver`, `flex-mariadb`).
+
+**Repo name uses a hyphen (`flex-postgres`) but the provider resources are `stackit_postgresflex_*`
+(no hyphen).**
+
+**Structure**
+```
+main.tf              # root: wires the three sub-modules
+modules/
+  instance/          # stackit_postgresflex_instance   (toggle create_instance)
+  database/          # stackit_postgresflex_database    (for_each over var.databases)
+  user/              # stackit_postgresflex_user        (for_each over var.users)
+```
+The `database` and `user` sub-modules take an `instance_id` — either the one created here or an
+existing instance (`create_instance = false` + `var.instance_id`), so they are usable standalone.
+
+**Key inputs** — `project_id` (req), `name`, `postgres_version` (e.g. "17"), `flavor_id`,
+`backup_schedule` (cron), `retention_days` (32–90), `storage` (`{class, size}`), `network`
+(`{acl?, access_scope?}`), `databases` (map of `{name, owner}`), `users` (map of
+`{username, roles, rotate_when_changed?}`), `create_instance`, `instance_id`.
+
+**Outputs** — `instance_id`, `host`, `port`, `database_ids`, `user_ids`, and **`user_passwords`
+(sensitive)**.
+
+**Gotchas**
+- The instance version variable is exposed as **`postgres_version`**, NOT `version` — `version`
+  is a reserved meta-argument on `module` blocks and collides during init.
+- The generated user `password` is a secret → the `user_passwords` output is `sensitive = true`.
+- `storage` and `network` are nested single objects → `= { ... }`, never `dynamic {}`.
+- Each sub-module carries its own `versions.tf` (terraform >= 1.3, provider >= 0.113.0).
+
 ## Repository structure
 
 ```
