@@ -20,6 +20,8 @@ module "database" {
   region      = var.region
   instance_id = coalesce(module.instance.instance_id, var.instance_id)
   databases   = var.databases
+
+  depends_on = [module.user]
 }
 
 module "user" {
