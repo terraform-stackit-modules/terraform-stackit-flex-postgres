@@ -4,75 +4,104 @@
 > Do not edit it manually — update `.header.md` or the module's variables/outputs instead, then run `pre-commit run -a`.
 
 <!-- BEGIN_TF_DOCS -->
-# Creating modules for Terraform Stackit Modules
-This repo template is used to seed Terraform Module templates for the Terraform Stackit Modules Organization. Usage of this template is allowed per included license. PRs to this template will be considered but are not guaranteed to be included. Consider creating an issue to discuss a feature you want to include before taking the time to create a PR.
+# Terraform STACKIT PostgreSQL Flex module
 
-This repository is not from StackIt official organization
+Terraform module which provisions a [STACKIT PostgreSQL](https://registry.terraform.io/providers/stackitcloud/stackit/latest/docs/resources/postgresflex_instance) Flex instance, its databases and its users on [STACKIT](https://www.stackit.de/en/).
 
-<!-- TEMPLATE ONLY - Remove this section when using this template for a new module -->
-## Acknowledgements
+This repository is not from the official STACKIT organization.
 
-This template is inspired by two reference implementations in the Terraform ecosystem:
+> **Naming.** The repository is `terraform-stackit-flex-postgres` (readability), while the provider
+> resources are `stackit_postgresflex_instance` / `stackit_postgresflex_database` /
+> `stackit_postgresflex_user`.
 
-- [terraform-aws-modules](https://github.com/terraform-aws-modules) by [Anton Babenko](https://github.com/antonbabenko) — the community standard for Terraform modules on AWS
-- [terraform-repo-template](https://github.com/aws-ia/terraform-repo-template) by [AWS Integration & Automation](https://github.com/aws-ia) — the AWS official modules organization
-<!-- END TEMPLATE ONLY -->
+## Usage
+
+```hcl
+module "flex_postgres" {
+  source  = "terraform-stackit-modules/flex-postgres/stackit"
+  version = ">= 1.0.0"
+
+  project_id       = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  name             = "app-postgres"
+  postgres_version = "17"
+  flavor_id        = "4.8-replica"
+  backup_schedule  = "0 0 * * *"
+  retention_days   = 32
+
+  storage = {
+    class = "premium-perf2-stackit"
+    size  = 5
+  }
+
+  network = {
+    acl = ["0.0.0.0/0"]
+  }
+
+  users = {
+    app = {
+      username = "app_user"
+      roles    = ["login"]
+    }
+  }
+
+  databases = {
+    app = {
+      name  = "app_db"
+      owner = "app_user"
+    }
+  }
+}
+```
+
+## Composite module
+
+This is a composite module with independently usable sub-modules:
+
+- `modules/instance` — the `stackit_postgresflex_instance` (toggled by `create_instance`).
+- `modules/database` — `stackit_postgresflex_database` entries (`for_each` over `databases`).
+- `modules/user` — `stackit_postgresflex_user` entries (`for_each` over `users`).
+
+The root wires them together and, when `create_instance = false`, targets an existing instance via
+`instance_id` for database/user management.
+
+## Examples
+
+- [`basic`](./examples/basic) — minimal instance + one user + one database.
+- [`complete`](./examples/complete) — prod-like: restricted ACL, longer backup retention, multiple
+  users and databases. Mirrors `complete-postgres` in terraform-aws-rds.
+- [`replica`](./examples/replica) — high availability. NOTE: STACKIT PostgreSQL replication is
+  carried by the **flavor** (a `-replica` flavor provisions a managed primary/replica topology);
+  there is no RDS-style `replicate_source_db` resource to wire to a source.
+
+## Notes
+
+- Generated user passwords are exposed via the **sensitive** `user_passwords` output.
+- `users` and `databases` are maps keyed by a **stable identifier**; the instance\_id (known after
+  apply when the instance is created here) is only a resource attribute, never a `for_each` key.
+- `retention_days` must be between 32 and 90.
 
 <!-- markdownlint-disable MD001 -->
-### TL;DR
+### Contributing
 
-1. [install pre-commit](https://pre-commit.com/#install)
-    - Prerequisites:
-        - [Python](https://docs.python.org/3/using/index.html)
-        - [Pip](https://pip.pypa.io/en/stable/installation/)
-2. configure pre-commit: `pre-commit install`
-3. install required tools
-    - [tflint](https://github.com/terraform-linters/tflint)
-    - [tfsec](https://aquasecurity.github.io/tfsec/v1.0.11/)
-    - [terraform-docs](https://github.com/terraform-docs/terraform-docs)
-    - [golang](https://go.dev/doc/install) (for macos you can use `brew`)
-    - [coreutils](https://www.gnu.org/software/coreutils/)
+This module follows the conventions of the `terraform-stackit-modules` organization. Before opening a PR:
 
-Code convention to be defined.
+1. [Install pre-commit](https://pre-commit.com/#install) and run `pre-commit install`.
+2. Install the required tools: [tflint](https://github.com/terraform-linters/tflint), [tfsec](https://aquasecurity.github.io/tfsec/), [terraform-docs](https://github.com/terraform-docs/terraform-docs), [golang](https://go.dev/doc/install), [coreutils](https://www.gnu.org/software/coreutils/).
+3. Run the checks: `pre-commit run -a`.
 
-## Module Documentation
-
-**Do not manually update README.md**. README.md is automatically generated by pulling in content from other files. For instructions, including a fill-in-the-blank content template.
+**Do not manually edit `README.md`** — it is generated by `terraform-docs` from this file and the module's inputs/outputs.
 
 ## Terratest
 
-Please include tests to validate your examples/<> root modules, at a minimum. This can be accomplished with usually only slight modifications to the [boilerplate test provided in this template](./test/examples\_basic\_test.go)
+The `test/` directory holds Terratest integration tests that apply the example root modules against a real STACKIT project (requires `STACKIT_SERVICE_ACCOUNT_KEY` and `STACKIT_PROJECT_ID`).
 
-### Configure and run Terratest
-
-1. Install
-
-    [golang](https://go.dev/doc/install) (for macos you can use `brew`)
-2. Change directory into the test folder.
-
-    `cd test`
-3. Initialize your test
-
-    go mod init github.com/[github org]/[repository]
-
-    `go mod init github.com/terraform-stackit-modules/terraform-stackit-network`
-4. Run tidy
-
-    `go mod tidy`
-5. Install Terratest
-
-    `go get github.com/gruntwork-io/terratest/modules/terraform`
-6. Run test (You can have multiple test files).
-    - Run all tests
-
-        `go test`
-    - Run a specific test with a timeout
-
-        `go test -run TestExamplesBasic -timeout 45m`
-
-## Module Standards
-
-To be defined
+```bash
+cd test
+go mod init github.com/terraform-stackit-modules/terraform-stackit-flex-postgres
+go get github.com/gruntwork-io/terratest@v1.0.1
+go mod tidy
+go test -v -timeout 45m ./...
+```
 
 ## Requirements
 
@@ -87,7 +116,11 @@ No providers.
 
 ## Modules
 
-No modules.
+| Name | Source | Version |
+| ---- | ------ | ------- |
+| <a name="module_database"></a> [database](#module\_database) | ./modules/database | n/a |
+| <a name="module_instance"></a> [instance](#module\_instance) | ./modules/instance | n/a |
+| <a name="module_user"></a> [user](#module\_user) | ./modules/user | n/a |
 
 ## Resources
 
@@ -95,9 +128,30 @@ No resources.
 
 ## Inputs
 
-No inputs.
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_project_id"></a> [project\_id](#input\_project\_id) | STACKIT project ID to which the PostgreSQL Flex instance, databases and users are associated. | `string` | n/a | yes |
+| <a name="input_backup_schedule"></a> [backup\_schedule](#input\_backup\_schedule) | Cron expression for the backup schedule, e.g. "0 0 * * *". | `string` | `null` | no |
+| <a name="input_create_instance"></a> [create\_instance](#input\_create\_instance) | Whether to create the PostgreSQL Flex instance. Set to false to manage databases/users against an existing instance provided via `instance_id`. | `bool` | `true` | no |
+| <a name="input_databases"></a> [databases](#input\_databases) | Map of databases to create in the instance, keyed by a stable identifier. Each value:<br/>  - `name`  : database name.<br/>  - `owner` : username of the database owner. | <pre>map(object({<br/>    name  = string<br/>    owner = string<br/>  }))</pre> | `{}` | no |
+| <a name="input_flavor_id"></a> [flavor\_id](#input\_flavor\_id) | The flavor ID of the instance (e.g. "4.8-replica"). List available flavors with the `stackit_postgresflex_flavors` data source. | `string` | `null` | no |
+| <a name="input_instance_id"></a> [instance\_id](#input\_instance\_id) | ID of an existing PostgreSQL Flex instance. Used for databases/users when `create_instance` is false. | `string` | `null` | no |
+| <a name="input_name"></a> [name](#input\_name) | Instance name. | `string` | `null` | no |
+| <a name="input_network"></a> [network](#input\_network) | Instance network configuration: `{ acl = [<CIDR>...], access_scope = "PUBLIC"|"SNA" }`. | <pre>object({<br/>    acl          = optional(list(string))<br/>    access_scope = optional(string)<br/>  })</pre> | `null` | no |
+| <a name="input_postgres_version"></a> [postgres\_version](#input\_postgres\_version) | The PostgreSQL major version, e.g. "17". | `string` | `null` | no |
+| <a name="input_region"></a> [region](#input\_region) | The resource region. If not defined, the provider region is used. | `string` | `null` | no |
+| <a name="input_retention_days"></a> [retention\_days](#input\_retention\_days) | How long backups are retained, between 32 and 90 days. | `number` | `null` | no |
+| <a name="input_storage"></a> [storage](#input\_storage) | Storage configuration for the instance: `{ class = <storage class>, size = <GB> }`. Required when `create_instance` is true. | <pre>object({<br/>    class = string<br/>    size  = number<br/>  })</pre> | `null` | no |
+| <a name="input_users"></a> [users](#input\_users) | Map of users to create in the instance, keyed by a stable identifier. Each value:<br/>  - `username`            : the user name.<br/>  - `roles`               : set of database access roles (e.g. ["login"]).<br/>  - `rotate_when_changed` : optional map whose change forces password rotation.<br/>Generated passwords are exposed via the `user_passwords` output (sensitive). | <pre>map(object({<br/>    username            = string<br/>    roles               = set(string)<br/>    rotate_when_changed = optional(map(string))<br/>  }))</pre> | `{}` | no |
 
 ## Outputs
 
-No outputs.
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_database_ids"></a> [database\_ids](#output\_database\_ids) | Map of database key to database ID. |
+| <a name="output_host"></a> [host](#output\_host) | The write host of the instance (null when the instance is not created by this module). |
+| <a name="output_instance_id"></a> [instance\_id](#output\_instance\_id) | The ID of the PostgreSQL Flex instance (created, or the provided instance\_id when create\_instance is false). |
+| <a name="output_port"></a> [port](#output\_port) | The write port of the instance (null when the instance is not created by this module). |
+| <a name="output_user_ids"></a> [user\_ids](#output\_user\_ids) | Map of user key to user ID. |
+| <a name="output_user_passwords"></a> [user\_passwords](#output\_user\_passwords) | Map of user key to generated password. Sensitive. |
 <!-- END_TF_DOCS -->
