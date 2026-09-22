@@ -1,10 +1,12 @@
 package test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/terraform"
 )
+
 
 func TestExamplesBasic(t *testing.T) {
 
