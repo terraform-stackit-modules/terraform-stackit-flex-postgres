@@ -11,4 +11,7 @@ resource "stackit_postgresflex_instance" "this" {
 
   storage = var.storage
   network = var.network
+
+  # encryption is a nested single object → assign with = { ... } (never dynamic {})
+  encryption = var.encryption
 }

@@ -37,6 +37,14 @@ existing instance (`create_instance = false` + `var.instance_id`), so they are u
 (sensitive)**.
 
 **Gotchas**
+- `encryption` = `{kek_key_id, kek_key_version (STRING), kek_keyring_id, service_account}` — KMS
+  storage encryption; nested single object → `= { ... }`. `kek_key_version` is a STRING here
+  (unlike the volume module where it is a number). Fresh key = version 1.
+- The linked SA MUST hold `role = "kms.admin"` on the project via
+  `stackit_authorization_project_role_assignment` (needs provider experiment `iam`): the DB service
+  impersonates it to unwrap the data key (permission `kms.key.version.decrypt`, which `kms.reader`
+  does NOT contain). Without it: `STACKIT_KMS_PLUGIN: KMS Error: Access Forbidden`. NO Act-As
+  assignment needed for DB services (Act-As is the SKE-only pattern). See `examples/encrypted`.
 - The instance version variable is exposed as **`postgres_version`**, NOT `version` — `version`
   is a reserved meta-argument on `module` blocks and collides during init.
 - The generated user `password` is a secret → the `user_passwords` output is `sensitive = true`.
