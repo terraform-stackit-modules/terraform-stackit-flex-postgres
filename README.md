@@ -71,6 +71,8 @@ The root wires them together and, when `create_instance = false`, targets an exi
 - [`replica`](./examples/replica) — high availability. NOTE: STACKIT PostgreSQL replication is
   carried by the **flavor** (a `-replica` flavor provisions a managed primary/replica topology);
   there is no RDS-style `replicate_source_db` resource to wire to a source.
+- [`encrypted`](./examples/encrypted) — storage encrypted with a STACKIT-KMS key-encryption-key,
+  using the published `terraform-stackit-kms` and `terraform-stackit-service-account` modules.
 
 ## Notes
 
@@ -78,6 +80,18 @@ The root wires them together and, when `create_instance = false`, targets an exi
 - `users` and `databases` are maps keyed by a **stable identifier**; the instance\_id (known after
   apply when the instance is created here) is only a resource attribute, never a `for_each` key.
 - `retention_days` must be between 32 and 90.
+- `encryption` wires a STACKIT-KMS key-encryption-key for storage encryption:
+  `{ kek_key_id, kek_key_version, kek_keyring_id, service_account }`. The linked service account
+  is used by the database service to access the key (see `terraform-stackit-service-account` and
+  `terraform-stackit-kms`); a freshly created key is at version 1. See the
+  [`encrypted`](./examples/encrypted) example.
+- **The linked `service_account` must hold the `kms.admin` role on the project**
+  (via the `terraform-stackit-authorization` module, backed by
+  `stackit_authorization_project_role_assignment`, which requires the provider experiment
+  `iam`). The PostgreSQL service impersonates it to unwrap the data key — a permission that
+  `kms.reader` does NOT contain (`kms.key.version.decrypt`). Without the assignment, instance
+  creation fails with `STACKIT_KMS_PLUGIN: KMS Error: Access Forbidden`. No Act-As assignment is
+  needed for the database services (that pattern is SKE-only).
 
 <!-- markdownlint-disable MD001 -->
 ### Contributing
@@ -121,6 +135,7 @@ No resources.
 | <a name="input_backup_schedule"></a> [backup\_schedule](#input\_backup\_schedule) | Cron expression for the backup schedule, e.g. "0 0 * * *". | `string` | `null` | no |
 | <a name="input_create_instance"></a> [create\_instance](#input\_create\_instance) | Whether to create the PostgreSQL Flex instance. Set to false to manage databases/users against an existing instance provided via `instance_id`. | `bool` | `true` | no |
 | <a name="input_databases"></a> [databases](#input\_databases) | Map of databases to create in the instance, keyed by a stable identifier. Each value:<br/>  - `name`  : database name.<br/>  - `owner` : username of the database owner. | <pre>map(object({<br/>    name  = string<br/>    owner = string<br/>  }))</pre> | `{}` | no |
+| <a name="input_encryption"></a> [encryption](#input\_encryption) | Storage encryption of the PostgreSQL Flex instance with a STACKIT-KMS key-encryption-key:<br/>  `{ kek_key_id, kek_key_version, kek_keyring_id, service_account }`.<br/>`service_account` is the service account linked to the key — the database service uses it to<br/>access the key inside STACKIT-KMS (see the `terraform-stackit-service-account` module).<br/>A freshly created key is at version 1 (see the `terraform-stackit-kms` module).<br/>Only effective at creation; see the `encrypted` example. | <pre>object({<br/>    kek_key_id      = string<br/>    kek_key_version = string<br/>    kek_keyring_id  = string<br/>    service_account = string<br/>  })</pre> | `null` | no |
 | <a name="input_flavor_id"></a> [flavor\_id](#input\_flavor\_id) | The flavor ID of the instance (e.g. "4.8-replica"). List available flavors with the `stackit_postgresflex_flavors` data source. | `string` | `null` | no |
 | <a name="input_instance_id"></a> [instance\_id](#input\_instance\_id) | ID of an existing PostgreSQL Flex instance. Used for databases/users when `create_instance` is false. | `string` | `null` | no |
 | <a name="input_name"></a> [name](#input\_name) | Instance name. | `string` | `null` | no |
