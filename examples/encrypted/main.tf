@@ -7,6 +7,8 @@
 #   1. a keyring and a symmetric key-encryption-key (KEK) via the kms module,
 #   2. a service account that the database service uses to access the key,
 #   3. a PostgreSQL Flex instance whose storage is encrypted against that KEK.
+#
+# KMS Encryption for Flex PostgreSQL DBs is in private Preview.
 #####################################################################################
 
 # Keyring + key-encryption-key via the published kms module.
