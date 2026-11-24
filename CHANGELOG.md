@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0](https://github.com/terraform-stackit-modules/terraform-stackit-flex-postgres/compare/v1.0.0...v1.1.0) (2026-11-24)
+
+### Features
+
+* add KMS storage encryption and an encrypted example using the kms, service-account and authorization modules ([2f10640](https://github.com/terraform-stackit-modules/terraform-stackit-flex-postgres/commit/2f1064088540d5e0893e6931a46180c562e304b2))
+
+### Bug Fixes
+
+* Remove terratest test for Encrypted Postgres. ([6228eec](https://github.com/terraform-stackit-modules/terraform-stackit-flex-postgres/commit/6228eec6e74219f6f10f7e87490a1758efa49d17))
+
 ## 1.0.0 (2026-09-22)
 
 ### Features
