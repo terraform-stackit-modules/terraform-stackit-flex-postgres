@@ -63,3 +63,19 @@ variable "network" {
   })
   default = null
 }
+
+variable "encryption" {
+  description = <<-EOT
+    Storage encryption with a STACKIT-KMS key-encryption-key:
+      `{ kek_key_id, kek_key_version, kek_keyring_id, service_account }`.
+    `service_account` is the service account linked to the key — the database service uses it to
+    access the key inside STACKIT-KMS. A freshly created key is at version 1.
+  EOT
+  type = object({
+    kek_key_id      = string
+    kek_key_version = string
+    kek_keyring_id  = string
+    service_account = string
+  })
+  default = null
+}

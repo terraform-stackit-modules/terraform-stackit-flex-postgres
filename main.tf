@@ -11,6 +11,7 @@ module "instance" {
   retention_days   = var.retention_days
   storage          = var.storage
   network          = var.network
+  encryption       = var.encryption
 }
 
 module "database" {
